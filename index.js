@@ -1,6 +1,8 @@
 const Discord = require('discord.js');
 const dotenv = require('dotenv').config(); 
 
+
+// Declare all global-scoped variables
 var players = [];
 var roles = [];
 var votes = [];
@@ -11,7 +13,9 @@ var signInTime, signing, isPlaying = 0, status = 'night', checkedPerson, guarded
 
 var bot = new Discord.Client({});
 
+// Function that restarts everything and starts new game
 function newGame() {
+    // Restart everything to prepare new game
     status = 'day';
     checkedPerson = ''
     guardedPerson = ''
@@ -19,12 +23,15 @@ function newGame() {
     voted = []
     mafiaVotes = []
     mafiaVoted = []
+
+    // Set number of Mafia members, depends on number of players
     let mafiaLength;
     if(players.length <= 7) {mafiaLength = 2;}
     else if(players.length <= 10) {mafiaLength = 3;}
     else if(players.length <= 13) {mafiaLength = 4;}
     else if(players.length > 13) {mafiaLength = 5;}
     
+    // Set officer and bodyguard
     let komisarzCount = 0;
     let ochroniarzCount = 0;
 
@@ -44,6 +51,8 @@ function newGame() {
         }
     }while(ochroniarzCount == 0 )
 
+    // Set liquidator and judgle if enough players
+    // Liquidator not set
     // if(mafiaLength == 3){
     //     let likwidatorCount;
     //     do{
@@ -74,18 +83,19 @@ function newGame() {
         }
     }while(mafiaLength != 0 )
     
-
+    // Add roles on server
     players.forEach(e => {
         if(e.role != ''){
             let role = roles.find(roles.find(role => role.name == e.role))
             e.roles.add(role.id)
-              .then(() => msg.reply('Dodano rolę'))
+              .then(() => console.log(`Dodano rolę ${e.role} dla ${e.name}`))
               .catch(e => console.log(e));
         }
     })
 
 }
 
+// Function that check votes and add new vote
 function vote(msg){
 
     if(voted.find(e => e == msg.author.id)){
@@ -111,6 +121,7 @@ function vote(msg){
     }
 }
 
+// Function that checks which player got most votes and then remove this player out of game
 function checkKill(){
     let max = {
         id: '',
@@ -129,7 +140,7 @@ function checkKill(){
             if(e._roles != ''){
                 e._roles.forEach(e => {
                 e.roles.remove(e)
-                  .then(() => console.log('cipka'))
+                  .then(() => console.log('Usunięto rolę użytkownikowi'))
                   .catch(e => console.log(e));
                 })
             }
@@ -150,11 +161,9 @@ bot.on('ready', e => {
 
 bot.on('message', msg => {
 
-    if(msg.content.startsWith('!test')){
-        console.table(msg.mentions.members.first().name)
-    }
+    // Commands:
 
-    // Początek gry
+    // Command that starts game, it must typed on default channel and if other game is playing it won't work
     if (msg.content.startsWith("!new")) {
         if(msg.channel.name == 'ogólny'){
             msg.guild.roles.fetch()
@@ -190,23 +199,24 @@ bot.on('message', msg => {
         }
     }
 
-    
+    // Judge's command, it must be typed on judge's channel
     if (msg.content.startsWith("!judge")) {
         if(msg.channel.name == 'sędzia'){
             if(status == 'night'){
                 vote(msg);
-                msg.reply(`Oddajesz dodatkowy głos na ${msg.mentions.members.first().name}`)
+                msg.reply(`Oddajesz dodatkowy głos na ${players.find(e => e.id == msg.mentions.members.first().id).user.username}`)
                 
             }
         }
     }
 
+    // officer's command, it must be typed on officer's channel
     if (msg.content.startsWith("!officer")) {
         if(msg.channel.name == 'komisarz'){
             if(status == 'night'){
                 if(checkedPerson != 1){
-                    msg.reply(`Sprawdzasz ${msg.mentions.members.first()}`)
-                    if(msg.mentions.members.first().role == 'Mafia'){
+                    msg.reply(`Sprawdzasz ${players.find(e => e.id == msg.mentions.members.first().id).user.username}`)
+                    if(players.find(e => e.id == msg.mentions.members.first().id).role == 'Mafia'){
                         msg.reply('Gracz przez Ciebie sprawdzany jest w Mafii')
                     }else {
                         msg.reply('Gracz przez Ciebie sprawdzany nie jest w Mafii')
@@ -218,11 +228,12 @@ bot.on('message', msg => {
         }
     }
 
+    // bodyguard's command, it must be typed on bodyguard's channel
     if (msg.content.startsWith("!bodyguard")) {
         if(msg.channel.name == 'ochroniarz'){
             if(status == 'night'){
                 if(guardedPerson != ''){
-                    msg.reply(`Chronisz ${msg.mentions.members.first()}`)
+                    msg.reply(`Chronisz ${players.find(e => e.id == msg.mentions.members.first().id).user.username}`)
 
                     guardedPerson = msg.mentions.members.first().id;
                 }
@@ -230,12 +241,12 @@ bot.on('message', msg => {
         }
     }
 
-
+    // Mafia's command, it must be typed on mafias's channel and all votes will be summary to kill other player
     if (msg.content.startsWith("!kill")) {
         if(msg.channel.name == 'mafia'){
             if(status == 'night'){
                 if(guardedPerson != ''){
-                    msg.reply(`Głosujesz za zabiciem ${msg.mentions.members.first()}`)
+                    msg.reply(`Głosujesz za zabiciem ${players.find(e => e.id == msg.mentions.members.first().id).user.username}`)
 
                     if(voted.find(e => e == msg.author.id)){
                         msg.reply('Już głosowałeś...')
@@ -267,21 +278,22 @@ bot.on('message', msg => {
         }
     }
 
+    // Command for vote for all players voting at day
     if(msg.content.startsWith('!vote')){
         if(status == 'day'){
             msg.reply(vote(msg))
         }
     }
 
-
+    // Sign up to game
     if(msg.content.startsWith('!play')) {
         if(signing == 1){
             players.push(msg.guild.member(msg.author))
             msg.reply('dołączasz do gry!')
-            console.table(players)
         }
     }
 
+    // GM commands to switch beetwen day and night
     if(msg.content == '!day'){
         if(msg.channel.name == 'administracja'){
             status = 'day'
@@ -301,5 +313,5 @@ bot.on('message', msg => {
     }
 });
 
-
+// Bot token must be in .env file!
 bot.login(process.env.TOKEN)
